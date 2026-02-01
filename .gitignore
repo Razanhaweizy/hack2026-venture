@@ -1,3 +1,13 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+dist-ssr
+.next/
+out/
+
 # Logs
 logs
 *.log
@@ -7,9 +17,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Local
 *.local
 
 # Editor directories and files
@@ -22,3 +30,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment files
+.env
+.env.*
+
+# OS / editor
+.idea/
+.vscode/
+
+# Coverage
+coverage/

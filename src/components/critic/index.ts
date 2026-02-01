@@ -1,0 +1,1 @@
+export { ClaimCriticPanel } from './ClaimCriticPanel';
