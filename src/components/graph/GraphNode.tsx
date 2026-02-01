@@ -5,7 +5,7 @@
 
 import { useRef, useState, useMemo } from 'react';
 import { useFrame, ThreeEvent } from '@react-three/fiber';
-import { Html, Text } from '@react-three/drei';
+import { Html, Text, Billboard } from '@react-three/drei';
 import * as THREE from 'three';
 import type { GraphNode as GraphNodeType, FrameworkNode, EvidenceNode } from '../../types/graph';
 import { NODE_COLORS, EVIDENCE_VALENCE_COLORS, COLORS } from './constants';
@@ -14,6 +14,8 @@ import type { NodePosition } from './layout';
 // =============================================================================
 // PROPS
 // =============================================================================
+
+type DiffHighlightType = 'update' | 'add' | 'connect' | 'contradict' | 'strengthen' | 'weaken';
 
 interface GraphNodeProps {
   node: GraphNodeType;
@@ -25,7 +27,18 @@ interface GraphNodeProps {
   onClick: (node: GraphNodeType) => void;
   onDoubleClick?: (node: GraphNodeType) => void;
   onHover?: (node: GraphNodeType | null) => void;
+  diffHighlight?: DiffHighlightType;
 }
+
+// Highlight colors for diff mode
+const DIFF_HIGHLIGHT_COLORS: Record<DiffHighlightType, string> = {
+  update: '#F59E0B',    // Amber for updates
+  add: '#10B981',       // Green for additions
+  connect: '#8B5CF6',   // Purple for connections
+  contradict: '#DC2626', // Red for conflicts
+  strengthen: '#10B981', // Green for strengthen
+  weaken: '#F59E0B',    // Amber for weaken
+};
 
 // =============================================================================
 // COMPONENT
@@ -41,6 +54,7 @@ export function GraphNode({
   onClick,
   onDoubleClick,
   onHover,
+  diffHighlight,
 }: GraphNodeProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
@@ -54,12 +68,15 @@ export function GraphNode({
     return NODE_COLORS[node.type];
   }, [node]);
   
+  // Diff highlight color
+  const diffColor = diffHighlight ? DIFF_HIGHLIGHT_COLORS[diffHighlight] : null;
+  
   // Animation: subtle floating and pulse when selected
   useFrame((state) => {
     if (meshRef.current) {
-      // Subtle floating animation
+      // Subtle floating animation (local to group, so just the offset)
       const floatOffset = Math.sin(state.clock.elapsedTime * 0.5 + position.x) * 0.05;
-      meshRef.current.position.y = position.y + floatOffset;
+      meshRef.current.position.y = floatOffset;
       
       // Pulse when selected
       if (isSelected) {
@@ -97,11 +114,18 @@ export function GraphNode({
   
   // Determine emissive intensity based on state
   const emissiveIntensity = useMemo(() => {
+    if (diffHighlight) return 0.5; // Strong glow for diff highlights
     if (isSelected) return 0.4;
     if (isHighlighted) return 0.3;
     if (hovered) return 0.25;
     return 0.1;
-  }, [isSelected, isHighlighted, hovered]);
+  }, [isSelected, isHighlighted, hovered, diffHighlight]);
+  
+  // Determine the emissive color (for diff highlighting)
+  const emissiveColor = useMemo(() => {
+    if (diffColor) return diffColor;
+    return color;
+  }, [color, diffColor]);
   
   // Get display label
   const label = node.title;
@@ -128,7 +152,7 @@ export function GraphNode({
         {/* Material */}
         <meshStandardMaterial
           color={color}
-          emissive={color}
+          emissive={emissiveColor}
           emissiveIntensity={emissiveIntensity}
           roughness={isFramework ? 0.6 : 0.4}
           metalness={isFramework ? 0.1 : 0.3}
@@ -164,20 +188,27 @@ export function GraphNode({
         </mesh>
       )}
       
-      {/* Label - using Text for 3D labels */}
+      {/* Label - using Billboard + Text to always face camera */}
       {(showLabel || showPersistentLabel || hovered) && (
-        <Text
+        <Billboard
+          follow={true}
+          lockX={false}
+          lockY={false}
+          lockZ={false}
           position={[0, size + 0.3, 0]}
-          fontSize={isFramework ? 0.4 : 0.3}
-          color={COLORS.text}
-          anchorX="center"
-          anchorY="bottom"
-          outlineWidth={0.02}
-          outlineColor={COLORS.background}
-          maxWidth={3}
         >
-          {label}
-        </Text>
+          <Text
+            fontSize={isFramework ? 0.4 : 0.3}
+            color={COLORS.text}
+            anchorX="center"
+            anchorY="bottom"
+            outlineWidth={0.02}
+            outlineColor={COLORS.background}
+            maxWidth={3}
+          >
+            {label}
+          </Text>
+        </Billboard>
       )}
       
       {/* HTML tooltip on hover for detailed info */}

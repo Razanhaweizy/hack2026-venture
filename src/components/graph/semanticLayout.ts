@@ -44,21 +44,21 @@ export interface LayoutConfig {
 }
 
 const DEFAULT_CONFIG: LayoutConfig = {
-  yRoot: 12,
-  yCategory: 8,
-  yFrameworkLeaf: 4,
-  yUserContent: 2,  // Raised above grid
-  yEvidence: 0,
+  yRoot: 12,          // Only used as initial hint for root
+  yCategory: 8,       // Initial hint
+  yFrameworkLeaf: 4,  // Initial hint
+  yUserContent: 2,    // Initial hint
+  yEvidence: 0,       // Initial hint
   
-  baseSpread: 15,
-  minDistance: 2,
+  baseSpread: 20,     // Initial spread radius
+  minDistance: 1.5,   // Minimum distance between nodes
   
-  iterations: 30,            // Fewer iterations
-  repulsionStrength: 15,     // Much lower repulsion
-  attractionStrength: 0.3,   // Stronger attraction
-  similarityWeight: 0.3,
-  edgeWeight: 1.0,           // Much stronger edge attraction
-  damping: 0.7,              // More damping
+  iterations: 80,              // More iterations for convergence
+  repulsionStrength: 8,        // Base repulsion
+  attractionStrength: 0.6,     // Similarity-based attraction
+  similarityWeight: 2.0,       // HIGH weight - similarity is primary driver
+  edgeWeight: 1.5,             // Edge attraction
+  damping: 0.5,                // Allow more movement
 };
 
 // =============================================================================
@@ -197,38 +197,23 @@ function buildSimilarityMatrix(
 }
 
 // =============================================================================
-// Y-LEVEL ASSIGNMENT
+// Y-LEVEL HINTS (used for initial placement, not fixed)
 // =============================================================================
 
-/**
- * Get the Y position for a node based on its type and hierarchy
- */
-function getNodeYLevel(node: GraphNode, config: LayoutConfig): number {
+/** Get initial Y hint for a node (used during initialization only) */
+function _getNodeYHint(node: GraphNode, config: LayoutConfig): number {
   if (node.type === 'framework') {
     const fw = node as FrameworkNode;
-    
-    if (fw.frameworkCategory === 'root') {
-      return config.yRoot;
-    }
-    
-    if (fw.position?.level === 1) {
-      return config.yCategory;
-    }
-    
-    if (fw.position?.level === 2) {
-      return config.yFrameworkLeaf;
-    }
-    
+    if (fw.frameworkCategory === 'root') return config.yRoot;
+    if (fw.position?.level === 1) return config.yCategory;
     return config.yFrameworkLeaf;
   }
-  
-  if (node.type === 'evidence') {
-    return config.yEvidence;
-  }
-  
-  // Claims and Facts
+  if (node.type === 'evidence') return config.yEvidence;
   return config.yUserContent;
 }
+
+// Keep for potential future use
+void _getNodeYHint;
 
 // =============================================================================
 // FORCE-DIRECTED LAYOUT
@@ -236,151 +221,162 @@ function getNodeYLevel(node: GraphNode, config: LayoutConfig): number {
 
 interface NodeState {
   x: number;
+  y: number;
   z: number;
   vx: number;
+  vy: number;
   vz: number;
-  y: number; // Fixed based on hierarchy
   node: GraphNode;
+  isAnchor: boolean; // Only root node is anchored
 }
 
 /**
- * Initialize node positions - spread based on category for framework nodes
- * User content nodes are placed near their connected framework nodes
+ * Initialize node positions using similarity-aware placement
+ * Nodes with high similarity start closer together for faster convergence
  */
 function initializePositions(
   nodes: GraphNode[],
   edges: GraphEdge[],
+  similarities: Map<string, Map<string, number>>,
   config: LayoutConfig
 ): Map<string, NodeState> {
   const states = new Map<string, NodeState>();
+  const n = nodes.length;
   
-  // Category X positions (spread across X axis)
-  const categoryX: Record<string, number> = {
-    root: 0,
-    market: -14,
-    problem: -10,
-    solution: -6,
-    timing: -2,
-    founder: 2,
-    competition: 6,
-    business_model: 10,
-    gtm: 14,
-  };
-  
-  // Build edge lookup for finding connected nodes
-  const nodeConnections = new Map<string, string[]>();
+  // Build edge lookup for initial placement hints
+  const edgeMap = new Map<string, Set<string>>();
   edges.forEach(edge => {
-    if (!nodeConnections.has(edge.from)) nodeConnections.set(edge.from, []);
-    if (!nodeConnections.has(edge.to)) nodeConnections.set(edge.to, []);
-    nodeConnections.get(edge.from)!.push(edge.to);
-    nodeConnections.get(edge.to)!.push(edge.from);
+    if (!edgeMap.has(edge.from)) edgeMap.set(edge.from, new Set());
+    if (!edgeMap.has(edge.to)) edgeMap.set(edge.to, new Set());
+    edgeMap.get(edge.from)!.add(edge.to);
+    edgeMap.get(edge.to)!.add(edge.from);
   });
   
-  // Create a map for quick node lookup
-  const nodeMap = new Map<string, GraphNode>();
-  nodes.forEach(node => nodeMap.set(node.id, node));
+  // Use golden ratio for even spherical distribution
+  const goldenRatio = (1 + Math.sqrt(5)) / 2;
+  const angleIncrement = Math.PI * 2 * goldenRatio;
   
-  // Group nodes by category for initial spread
-  const nodesByCategory = new Map<string, GraphNode[]>();
-  
-  nodes.forEach(node => {
-    let category = 'other';
-    if (node.type === 'framework') {
-      const fw = node as FrameworkNode;
-      category = fw.frameworkCategory || 'other';
-    }
+  // Sort nodes: root first, then by average similarity (cluster similar nodes)
+  const sortedNodes = [...nodes].sort((a, b) => {
+    // Root first
+    if (a.type === 'framework' && (a as FrameworkNode).frameworkCategory === 'root') return -1;
+    if (b.type === 'framework' && (b as FrameworkNode).frameworkCategory === 'root') return 1;
     
-    if (!nodesByCategory.has(category)) {
-      nodesByCategory.set(category, []);
-    }
-    nodesByCategory.get(category)!.push(node);
+    // Calculate average similarity to other nodes (for clustering)
+    const avgSimA = calculateAverageSimilarity(a.id, similarities);
+    const avgSimB = calculateAverageSimilarity(b.id, similarities);
+    
+    return avgSimB - avgSimA; // Higher similarity = earlier in list = more central
   });
   
-  // First pass: Initialize framework nodes
-  nodes.forEach(node => {
-    if (node.type !== 'framework') return;
+  // Initialize positions on a sphere
+  sortedNodes.forEach((node, i) => {
+    const isRoot = node.type === 'framework' && 
+                   (node as FrameworkNode).frameworkCategory === 'root';
     
-    const y = getNodeYLevel(node, config);
-    let x = 0;
-    let z = 0;
+    if (isRoot) {
+      // Root at center-top
+      states.set(node.id, {
+        x: 0, y: 10, z: 0,
+        vx: 0, vy: 0, vz: 0,
+        node,
+        isAnchor: true,
+      });
+      return;
+    }
     
-    const fw = node as FrameworkNode;
-    const cat = fw.frameworkCategory || 'other';
-    const baseX = categoryX[cat] ?? 0;
+    // Check if we have a similar node already placed
+    const placedSimilar = findMostSimilarPlacedNode(node.id, similarities, states);
     
-    // Root node at center
-    if (cat === 'root') {
-      x = 0;
-      z = 0;
-    } else {
-      // Get index within category
-      const catNodes = nodesByCategory.get(cat) || [];
-      const idx = catNodes.indexOf(node);
-      const count = catNodes.length;
+    let x: number, y: number, z: number;
+    
+    if (placedSimilar && placedSimilar.similarity > 0.4) {
+      // Place near similar node with offset
+      const similar = states.get(placedSimilar.nodeId)!;
+      const offset = 3 + (1 - placedSimilar.similarity) * 5;
+      const angle = Math.random() * Math.PI * 2;
+      const elevAngle = (Math.random() - 0.5) * Math.PI;
       
-      // Spread within category
-      x = baseX + (idx - count / 2) * 1.5;
-      z = (idx % 3 - 1) * 3;
-    }
-    
-    states.set(node.id, {
-      x,
-      z,
-      vx: 0,
-      vz: 0,
-      y,
-      node,
-    });
-  });
-  
-  // Second pass: Initialize user content nodes near their connected framework nodes
-  nodes.forEach(node => {
-    if (node.type === 'framework') return;
-    
-    const y = getNodeYLevel(node, config);
-    let x = 0;
-    let z = 0;
-    
-    // Find connected framework nodes
-    const connections = nodeConnections.get(node.id) || [];
-    const connectedFrameworks: NodeState[] = [];
-    
-    connections.forEach(connId => {
-      const connNode = nodeMap.get(connId);
-      if (connNode && connNode.type === 'framework' && states.has(connId)) {
-        connectedFrameworks.push(states.get(connId)!);
+      x = similar.x + offset * Math.cos(angle) * Math.cos(elevAngle);
+      y = similar.y + offset * Math.sin(elevAngle);
+      z = similar.z + offset * Math.sin(angle) * Math.cos(elevAngle);
+    } else {
+      // Fibonacci sphere distribution
+      const t = i / n;
+      const inclination = Math.acos(1 - 2 * t);
+      const azimuth = angleIncrement * i;
+      
+      // Radius based on node type
+      let radius = config.baseSpread;
+      if (node.type === 'framework') {
+        const fw = node as FrameworkNode;
+        radius = fw.position?.level === 1 ? 8 : 12;
+      } else if (node.type === 'evidence') {
+        radius = config.baseSpread + 3;
       }
-    });
-    
-    if (connectedFrameworks.length > 0) {
-      // Position near the centroid of connected framework nodes
-      const avgX = connectedFrameworks.reduce((sum, s) => sum + s.x, 0) / connectedFrameworks.length;
-      const avgZ = connectedFrameworks.reduce((sum, s) => sum + s.z, 0) / connectedFrameworks.length;
       
-      // Add small random offset to prevent overlap
-      x = avgX + (Math.random() - 0.5) * 4;
-      z = avgZ + (Math.random() - 0.5) * 4;
-    } else {
-      // No connections - place randomly but more centered
-      x = (Math.random() - 0.5) * 10;
-      z = (Math.random() - 0.5) * 10;
+      // Convert to Cartesian
+      x = radius * Math.sin(inclination) * Math.cos(azimuth);
+      y = Math.max(1, radius * Math.cos(inclination) * 0.4 + 5);
+      z = radius * Math.sin(inclination) * Math.sin(azimuth);
     }
     
     states.set(node.id, {
-      x,
-      z,
-      vx: 0,
-      vz: 0,
-      y,
+      x, y, z,
+      vx: 0, vy: 0, vz: 0,
       node,
+      isAnchor: false,
     });
   });
   
   return states;
 }
 
+/** Calculate average similarity of a node to all others */
+function calculateAverageSimilarity(
+  nodeId: string,
+  similarities: Map<string, Map<string, number>>
+): number {
+  const simRow = similarities.get(nodeId);
+  if (!simRow || simRow.size === 0) return 0;
+  
+  let sum = 0;
+  simRow.forEach((sim, otherId) => {
+    if (otherId !== nodeId) sum += sim;
+  });
+  
+  return sum / simRow.size;
+}
+
+/** Find the most similar node that's already been placed */
+function findMostSimilarPlacedNode(
+  nodeId: string,
+  similarities: Map<string, Map<string, number>>,
+  states: Map<string, NodeState>
+): { nodeId: string; similarity: number } | null {
+  const simRow = similarities.get(nodeId);
+  if (!simRow) return null;
+  
+  let best: { nodeId: string; similarity: number } | null = null;
+  
+  simRow.forEach((sim, otherId) => {
+    if (otherId !== nodeId && states.has(otherId)) {
+      if (!best || sim > best.similarity) {
+        best = { nodeId: otherId, similarity: sim };
+      }
+    }
+  });
+  
+  return best;
+}
+
 /**
- * Apply forces and update positions
+ * Apply similarity-based forces in full 3D
+ * 
+ * Core principle: similarity determines ideal distance
+ * - High similarity (0.8+) → nodes should be close (distance ~2)
+ * - Low similarity (0.2-) → nodes can be far (distance ~15)
+ * - The force pulls/pushes to achieve ideal distance
  */
 function applyForces(
   states: Map<string, NodeState>,
@@ -399,77 +395,101 @@ function applyForces(
     edgeMap.get(edge.to)!.add(edge.from);
   });
   
-  // Calculate forces for each node pair
+  // Calculate forces for each node
   nodeIds.forEach(idA => {
     const stateA = states.get(idA)!;
-    const isUserNodeA = stateA.node.type !== 'framework';
-    let fx = 0;
-    let fz = 0;
+    
+    // Skip anchor nodes (root)
+    if (stateA.isAnchor) return;
+    
+    let fx = 0, fy = 0, fz = 0;
     
     nodeIds.forEach(idB => {
       if (idA === idB) return;
       
       const stateB = states.get(idB)!;
-      const isUserNodeB = stateB.node.type !== 'framework';
       
-      // Distance between nodes (on X-Z plane)
+      // 3D distance
       const dx = stateB.x - stateA.x;
+      const dy = stateB.y - stateA.y;
       const dz = stateB.z - stateA.z;
-      const dist = Math.sqrt(dx * dx + dz * dz) || 0.1;
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) || 0.01;
       
-      // Normalize direction
+      // Normalized direction
       const nx = dx / dist;
+      const ny = dy / dist;
       const nz = dz / dist;
       
-      // Get similarity
-      const similarity = similarities.get(idA)?.get(idB) || 0;
+      // Get similarity (symmetric)
+      const similarity = similarities.get(idA)?.get(idB) || 
+                        similarities.get(idB)?.get(idA) || 0;
       
       // Check if connected by edge
       const isConnected = edgeMap.get(idA)?.has(idB) || false;
       
-      // 1. Repulsion force - only between same-type nodes or very close nodes
-      // Don't let framework nodes push user content nodes far away
-      if ((isUserNodeA && isUserNodeB) || (!isUserNodeA && !isUserNodeB) || dist < 3) {
-        const repulsion = config.repulsionStrength / (dist * dist);
+      // === SIMILARITY-BASED SPRING FORCE ===
+      // Ideal distance is inverse of similarity
+      // High similarity (1.0) → ideal dist = 2
+      // Low similarity (0.0) → ideal dist = 15
+      const idealDist = 2 + (1 - similarity) * 13;
+      
+      // Spring force: pull if too far, push if too close
+      const displacement = dist - idealDist;
+      const springStrength = config.similarityWeight * config.attractionStrength;
+      
+      // Force proportional to how far from ideal
+      const springForce = displacement * springStrength * (0.3 + similarity * 0.7);
+      
+      fx += nx * springForce;
+      fy += ny * springForce;
+      fz += nz * springForce;
+      
+      // === REPULSION (prevents collapse) ===
+      if (dist < config.minDistance * 2) {
+        const repulsion = config.repulsionStrength / (dist * dist + 0.1);
         fx -= nx * repulsion;
+        fy -= ny * repulsion;
         fz -= nz * repulsion;
       }
       
-      // 2. Similarity attraction (similar nodes attract)
-      if (similarity > 0.1 && isUserNodeA === isUserNodeB) {
-        const simAttraction = similarity * config.similarityWeight * config.attractionStrength;
-        fx += nx * simAttraction * dist;
-        fz += nz * simAttraction * dist;
-      }
-      
-      // 3. Edge attraction (connected nodes attract STRONGLY)
+      // === EDGE ATTRACTION (connected nodes stay close) ===
       if (isConnected) {
-        const edgeAttraction = config.edgeWeight * config.attractionStrength;
-        const idealDist = 3; // Closer ideal distance for connected nodes
-        const edgeForce = (dist - idealDist) * edgeAttraction;
+        const edgeIdealDist = 3; // Connected nodes should be close
+        const edgeDisplacement = dist - edgeIdealDist;
+        const edgeForce = edgeDisplacement * config.edgeWeight * config.attractionStrength;
         
-        // User nodes are strongly attracted to their connected framework nodes
-        if (isUserNodeA && !isUserNodeB) {
-          fx += nx * edgeForce * 3; // Triple attraction to framework
-          fz += nz * edgeForce * 3;
-        } else {
-          fx += nx * edgeForce;
-          fz += nz * edgeForce;
-        }
+        fx += nx * edgeForce;
+        fy += ny * edgeForce;
+        fz += nz * edgeForce;
       }
     });
     
-    // Update velocity with damping - user nodes move slower
-    const dampingFactor = isUserNodeA ? config.damping * 0.5 : config.damping;
-    stateA.vx = (stateA.vx + fx) * dampingFactor;
-    stateA.vz = (stateA.vz + fz) * dampingFactor;
+    // === GRAVITY toward center (prevents drift) ===
+    const distFromCenter = Math.sqrt(stateA.x * stateA.x + stateA.z * stateA.z);
+    if (distFromCenter > 15) {
+      const gravityStrength = 0.1;
+      fx -= (stateA.x / distFromCenter) * gravityStrength * (distFromCenter - 15);
+      fz -= (stateA.z / distFromCenter) * gravityStrength * (distFromCenter - 15);
+    }
     
-    // Limit velocity - lower for user nodes
-    const maxVel = isUserNodeA ? 1 : 2;
-    const vel = Math.sqrt(stateA.vx * stateA.vx + stateA.vz * stateA.vz);
+    // === FLOOR constraint (keep above grid) ===
+    if (stateA.y < 0.5) {
+      fy += (0.5 - stateA.y) * 2;
+    }
+    
+    // Update velocity with damping
+    stateA.vx = (stateA.vx + fx) * config.damping;
+    stateA.vy = (stateA.vy + fy) * config.damping;
+    stateA.vz = (stateA.vz + fz) * config.damping;
+    
+    // Limit velocity
+    const maxVel = 2;
+    const vel = Math.sqrt(stateA.vx * stateA.vx + stateA.vy * stateA.vy + stateA.vz * stateA.vz);
     if (vel > maxVel) {
-      stateA.vx = (stateA.vx / vel) * maxVel;
-      stateA.vz = (stateA.vz / vel) * maxVel;
+      const scale = maxVel / vel;
+      stateA.vx *= scale;
+      stateA.vy *= scale;
+      stateA.vz *= scale;
     }
   });
   
@@ -477,24 +497,18 @@ function applyForces(
   nodeIds.forEach(id => {
     const state = states.get(id)!;
     
-    // Framework nodes at level 0 and 1 have fixed X positions
-    if (state.node.type === 'framework') {
-      const fw = state.node as FrameworkNode;
-      if (fw.frameworkCategory === 'root' || fw.position?.level === 1) {
-        // Keep fixed, only allow Z movement
-        state.z += state.vz * 0.5;
-        // Bound Z
-        state.z = Math.max(-15, Math.min(15, state.z));
-        return;
-      }
-    }
+    // Skip anchor nodes
+    if (state.isAnchor) return;
     
     state.x += state.vx;
+    state.y += state.vy;
     state.z += state.vz;
     
-    // Bound all nodes to visible area
-    state.x = Math.max(-20, Math.min(20, state.x));
-    state.z = Math.max(-20, Math.min(20, state.z));
+    // Soft bounds
+    const bound = 25;
+    state.x = Math.max(-bound, Math.min(bound, state.x));
+    state.y = Math.max(0.5, Math.min(15, state.y));
+    state.z = Math.max(-bound, Math.min(bound, state.z));
   });
 }
 
@@ -507,10 +521,11 @@ function runForceDirectedLayout(
   similarities: Map<string, Map<string, number>>,
   config: LayoutConfig
 ): Map<string, NodePosition> {
-  // Initialize positions - pass edges so user nodes can be placed near connected framework nodes
-  const states = initializePositions(nodes, edges, config);
+  // Initialize positions using spherical distribution
+  const states = initializePositions(nodes, edges, similarities, config);
   
-  // Run iterations
+  // Run force-directed iterations
+  // Similarity determines ideal distances, forces converge to that
   for (let i = 0; i < config.iterations; i++) {
     applyForces(states, similarities, edges, config);
   }

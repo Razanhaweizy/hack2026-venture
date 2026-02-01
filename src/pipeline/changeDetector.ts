@@ -470,18 +470,98 @@ export function determineChangesLocal(
   // If no related nodes, suggest adding
   if (relatedNodes.relatedNodes.length === 0) {
     changes.push(createAddNodeChange(statement));
-    return changes;
-  }
-  
-  // Analyze each related node
-  for (const related of relatedNodes.relatedNodes) {
-    const change = createChangeFromRelationship(statement, related);
-    if (change) {
-      changes.push(change);
+  } else {
+    // Analyze each related node
+    for (const related of relatedNodes.relatedNodes) {
+      const change = createChangeFromRelationship(statement, related);
+      if (change) {
+        changes.push(change);
+      }
     }
   }
   
+  // Generate suggestions based on content patterns
+  const suggestions = generateLocalSuggestions(statement);
+  changes.push(...suggestions);
+  
   return changes;
+}
+
+/**
+ * Generate SUGGEST changes based on statement content
+ */
+function generateLocalSuggestions(statement: Statement): ProposedChange[] {
+  const suggestions: ProposedChange[] = [];
+  const text = statement.text.toLowerCase();
+  
+  // Customer segment suggestions
+  const seatMatch = text.match(/(\d+)\s*seats?/);
+  if (seatMatch) {
+    const seats = parseInt(seatMatch[1]);
+    let segment = '';
+    if (seats <= 30) segment = 'small';
+    else if (seats <= 100) segment = 'medium';
+    else segment = 'large';
+    
+    suggestions.push({
+      id: uuid(),
+      type: 'SUGGEST',
+      priority: 'low',
+      suggestion: `Consider adding customer segment: ${segment} restaurants (${seats} seats)`,
+      rationale: `Interview mentions specific restaurant size, which could define a customer segment.`,
+      sourceText: statement.text,
+      explanation: `Detected restaurant size (${seats} seats) - consider defining customer segments.`,
+      timestamp: new Date(),
+    });
+  }
+  
+  // Location-based suggestions
+  const locationMatch = text.match(/\bin\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i);
+  if (locationMatch && statement.source) {
+    suggestions.push({
+      id: uuid(),
+      type: 'SUGGEST',
+      priority: 'low',
+      suggestion: `Consider geographic focus: ${locationMatch[1]}`,
+      rationale: `Customer ${statement.source} is located in ${locationMatch[1]}, which could inform go-to-market strategy.`,
+      sourceText: statement.text,
+      explanation: `Location mentioned - could inform geographic targeting.`,
+      timestamp: new Date(),
+    });
+  }
+  
+  // Pricing insights
+  if (/would pay|willing to pay|pay up to/i.test(text)) {
+    const priceMatch = text.match(/\$\s*([\d,]+)/);
+    if (priceMatch) {
+      suggestions.push({
+        id: uuid(),
+        type: 'SUGGEST',
+        priority: 'medium',
+        suggestion: `Validate pricing at $${priceMatch[1]}/mo with more customers`,
+        rationale: `One customer's willingness to pay provides a data point but needs validation.`,
+        sourceText: statement.text,
+        explanation: `Pricing signal detected - recommend validation with more interviews.`,
+        timestamp: new Date(),
+      });
+    }
+  }
+  
+  // Competitor/alternative solution insights
+  if (/tried|nothing (worked|stuck)|apps?|alternative|competitor/i.test(text)) {
+    suggestions.push({
+      id: uuid(),
+      type: 'SUGGEST',
+      priority: 'medium',
+      suggestion: `Research what apps/solutions customers have tried and why they failed`,
+      rationale: `Understanding why existing solutions failed is key to building something better.`,
+      sourceText: statement.text,
+      explanation: `Competitor/alternative solution mentioned - dig deeper into why they failed.`,
+      timestamp: new Date(),
+    });
+  }
+  
+  return suggestions;
 }
 
 /**

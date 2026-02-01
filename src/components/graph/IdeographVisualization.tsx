@@ -20,11 +20,14 @@ import { COLORS } from './constants';
 // TYPES
 // =============================================================================
 
+type HighlightType = 'update' | 'add' | 'connect' | 'contradict' | 'strengthen' | 'weaken';
+
 interface IdeographVisualizationProps {
   onNodeSelect?: (node: GraphNodeType | null) => void;
   onNodeDoubleClick?: (node: GraphNodeType) => void;
   showLabels?: boolean;
   autoRotate?: boolean;
+  highlightedNodes?: Record<string, HighlightType>;
 }
 
 // =============================================================================
@@ -90,6 +93,7 @@ interface GraphSceneProps {
   connectedNodeIds: Set<string>;
   connectedEdgeIds: Set<string>;
   showLabels: boolean;
+  highlightedNodes: Record<string, HighlightType>;
   onNodeClick: (node: GraphNodeType) => void;
   onNodeDoubleClick: (node: GraphNodeType) => void;
   onNodeHover: (node: GraphNodeType | null) => void;
@@ -105,6 +109,7 @@ function GraphScene({
   connectedNodeIds,
   connectedEdgeIds,
   showLabels,
+  highlightedNodes,
   onNodeClick,
   onNodeDoubleClick,
   onNodeHover,
@@ -155,6 +160,7 @@ function GraphScene({
             onClick={onNodeClick}
             onDoubleClick={onNodeDoubleClick}
             onHover={onNodeHover}
+            diffHighlight={highlightedNodes[node.id]}
           />
         );
       })}
@@ -170,6 +176,7 @@ export function IdeographVisualization({
   onNodeSelect,
   onNodeDoubleClick,
   showLabels = false,
+  highlightedNodes = {},
   // autoRotate reserved for future use
 }: IdeographVisualizationProps) {
   // State
@@ -259,13 +266,6 @@ export function IdeographVisualization({
         <pointLight position={[-20, -10, -20]} intensity={0.4} />
         <directionalLight position={[0, 10, 0]} intensity={0.3} />
         
-        {/* Grid helper for orientation */}
-        <gridHelper
-          args={[40, 40, COLORS.taupe, COLORS.taupe]}
-          position={[0, -0.5, 0]}
-          rotation={[0, 0, 0]}
-        />
-        
         {/* Graph scene */}
         <GraphScene
           nodes={nodes}
@@ -277,6 +277,7 @@ export function IdeographVisualization({
           connectedNodeIds={connectedNodeIds}
           connectedEdgeIds={connectedEdgeIds}
           showLabels={showLabels}
+          highlightedNodes={highlightedNodes}
           onNodeClick={handleNodeClick}
           onNodeDoubleClick={handleNodeDoubleClick}
           onNodeHover={handleNodeHover}

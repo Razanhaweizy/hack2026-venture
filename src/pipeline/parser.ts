@@ -267,13 +267,51 @@ Return a JSON array where each element matches the ParsedInput schema for the co
  */
 export function quickParseLocal(text: string): Partial<ParsedInput> {
   const statements: Statement[] = [];
+  const entities: Entity[] = [];
   
-  // Split by sentence-ending punctuation
+  // Detect interview pattern and extract source name
+  const interviewPattern = /\b(talked to|spoke with|met with|interviewed|conversation with)\s+([A-Z][a-z]+)/i;
+  const interviewMatch = text.match(interviewPattern);
+  const isInterview = !!interviewMatch;
+  const sourceName = interviewMatch ? interviewMatch[2] : undefined;
+  
+  // Extract entity from interview
+  if (sourceName) {
+    const entity: Entity = {
+      name: sourceName,
+      type: 'person',
+      role: 'potential customer',
+      attributes: {},
+    };
+    
+    // Extract attributes from text
+    const ownerMatch = text.match(/owns?\s+(?:a\s+)?([a-z]+)/i);
+    if (ownerMatch) {
+      entity.attributes[`${ownerMatch[1]}_owner`] = true;
+    }
+    
+    const locationMatch = text.match(/\bin\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/);
+    if (locationMatch) {
+      entity.attributes.location = locationMatch[1];
+    }
+    
+    const seatMatch = text.match(/(\d+)\s*seats?/i);
+    if (seatMatch) {
+      entity.attributes.seats = parseInt(seatMatch[1]);
+    }
+    
+    entities.push(entity);
+  }
+  
+  // Split by sentence-ending punctuation, but also by "and" when it separates distinct facts
   const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
   
   for (const sentence of sentences) {
     const trimmed = sentence.trim();
     if (trimmed.length < 3) continue;
+    
+    // Check for "she said" patterns (could be used for future statement splitting)
+    // const saidPattern = /\b(she|he|they)\s+(said|mentioned|told me|explained)/i;
     
     // Detect statement type based on patterns
     let type: Statement['type'] = 'claim';
@@ -284,55 +322,79 @@ export function quickParseLocal(text: string): Partial<ParsedInput> {
       type = 'question';
       confidence = 30;
     }
-    // Evidence patterns
-    else if (/\b(talked to|interviewed|surveyed|found that|data shows|research|according to)\b/i.test(trimmed)) {
+    // Evidence patterns - prioritize if it's an interview
+    else if (isInterview || /\b(talked to|interviewed|surveyed|found that|data shows|research|according to|she said|he said|they said)\b/i.test(trimmed)) {
       type = 'evidence';
-      confidence = 70;
+      confidence = 80; // Higher confidence for direct customer quotes
     }
-    // Fact patterns
+    // Fact patterns (only if not already evidence)
     else if (/\b(is worth|market size|revenue|costs?|price|percent|million|billion|\$\d+)\b/i.test(trimmed)) {
       type = 'fact';
       confidence = 60;
     }
+    
     // Certainty modifiers
     if (/\b(definitely|certainly|absolutely|we know|proven)\b/i.test(trimmed)) {
-      confidence = Math.min(100, confidence + 30);
+      confidence = Math.min(100, confidence + 20);
     }
     if (/\b(maybe|perhaps|might|could be|possibly|I think|I believe)\b/i.test(trimmed)) {
       confidence = Math.max(0, confidence - 20);
     }
     
+    // Willingness to pay is high-value evidence
+    if (/\b(would pay|willing to pay|pay up to|pay for)\b/i.test(trimmed)) {
+      type = 'evidence';
+      confidence = 85;
+    }
+    
     // Extract numbers
     let quantitative: Statement['quantitative'] | undefined;
-    const numberMatch = trimmed.match(/\$?([\d,]+(?:\.\d+)?)\s*(million|billion|k|%|percent|users|customers|dollars)?/i);
-    if (numberMatch) {
-      const value = parseFloat(numberMatch[1].replace(/,/g, ''));
-      const unit = numberMatch[2]?.toLowerCase() || 'units';
+    const moneyMatch = trimmed.match(/\$\s*([\d,]+(?:\.\d+)?)\s*(?:\/|\s*per\s*)?(month|mo|year|yr|week)?/i);
+    if (moneyMatch) {
+      const value = parseFloat(moneyMatch[1].replace(/,/g, ''));
+      const period = moneyMatch[2] || '';
+      const unit = period ? `$/\${period}` : 'dollars';
       quantitative = {
         value,
         unit,
         context: trimmed,
       };
+    } else {
+      const numberMatch = trimmed.match(/(\d+(?:,\d+)?(?:\.\d+)?)\s*(million|billion|k|%|percent|users|customers|seats?)?/i);
+      if (numberMatch) {
+        const value = parseFloat(numberMatch[1].replace(/,/g, ''));
+        const unit = numberMatch[2]?.toLowerCase() || 'units';
+        quantitative = {
+          value,
+          unit,
+          context: trimmed,
+        };
+      }
     }
     
     statements.push({
       text: trimmed,
       type,
       confidence,
+      source: sourceName,
       quantitative,
     });
   }
   
   // Detect sentiment
   let sentiment: ParsedInput['sentiment'] = 'neutral';
-  const positiveWords = /\b(great|excited|amazing|opportunity|growth|success|confident)\b/i;
-  const negativeWords = /\b(worried|concerned|problem|issue|difficult|hard|failing)\b/i;
+  const positiveWords = /\b(great|excited|amazing|opportunity|growth|success|confident|would pay|willing)\b/i;
+  const negativeWords = /\b(worried|concerned|problem|issue|difficult|hard|failing|nothing stuck|waste|costs)\b/i;
   
-  if (positiveWords.test(text)) sentiment = 'positive';
-  if (negativeWords.test(text)) sentiment = 'negative';
+  const posCount = (text.match(positiveWords) || []).length;
+  const negCount = (text.match(negativeWords) || []).length;
+  
+  if (posCount > negCount) sentiment = 'positive';
+  else if (negCount > posCount) sentiment = 'negative';
   
   return {
     statements,
+    entities,
     sentiment,
     rawText: text,
   };
