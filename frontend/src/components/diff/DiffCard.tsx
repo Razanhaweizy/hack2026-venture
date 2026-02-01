@@ -392,11 +392,22 @@ function AddVisualization({ change }: { change: ProposedChange }) {
           fontSize: '15px',
           marginBottom: '6px',
           color: S.colors.text,
+          wordWrap: 'break-word',
+          overflowWrap: 'break-word',
+          hyphens: 'auto',
         }}>
           {change.newNode.title}
         </div>
         
-        <div style={{ fontSize: '12px', color: S.colors.textSecondary, marginBottom: '10px', lineHeight: 1.5 }}>
+        <div style={{ 
+          fontSize: '12px', 
+          color: S.colors.textSecondary, 
+          marginBottom: '10px', 
+          lineHeight: 1.5,
+          wordWrap: 'break-word',
+          overflowWrap: 'break-word',
+          whiteSpace: 'pre-wrap',
+        }}>
           {change.newNode.content}
         </div>
         

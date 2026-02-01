@@ -125,6 +125,9 @@ function SelectedNodeSection({
             fontSize: '16px', 
             fontWeight: 600,
             marginBottom: '8px',
+            wordWrap: 'break-word',
+            overflowWrap: 'break-word',
+            hyphens: 'auto',
           }}>
             {selectedNode.title}
           </div>
@@ -135,6 +138,9 @@ function SelectedNodeSection({
               lineHeight: 1.5,
               opacity: 0.8,
               marginBottom: '12px',
+              wordWrap: 'break-word',
+              overflowWrap: 'break-word',
+              whiteSpace: 'pre-wrap',
             }}>
               {selectedNode.content}
             </p>

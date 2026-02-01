@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .routes import graph_router, agent_router
+from .routes.debate import router as debate_router
 
 # Create FastAPI app
 app = FastAPI(
@@ -27,6 +28,7 @@ app.add_middleware(
 # Include routers
 app.include_router(graph_router)
 app.include_router(agent_router)
+app.include_router(debate_router)
 
 
 @app.get("/")

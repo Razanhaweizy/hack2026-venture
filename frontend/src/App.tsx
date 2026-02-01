@@ -17,6 +17,7 @@ import { GapAnalysisPanel } from './components/gaps';
 import { OnboardingForm } from './components/onboarding';
 import { PitchTraining } from './components/pitch';
 import { PathBadge, PlaybookPanel, PathDetectionWizard } from './components/path';
+import { DebateArena } from './components/debate';
 import { 
   useGraphStore, 
   createFreshGraph, 
@@ -790,7 +791,7 @@ function SidePanel({ selectedNode, onShowNodeHistory, onView2D, onExtractFromInp
               </div>
               
               {/* Card Body */}
-              <div style={{ padding: '18px' }}>
+              <div style={{ padding: '18px', overflow: 'hidden' }}>
                 {/* Title */}
                 <h3 style={{ 
                   fontFamily: S.fontSerif,
@@ -800,6 +801,10 @@ function SidePanel({ selectedNode, onShowNodeHistory, onView2D, onExtractFromInp
                   letterSpacing: '0.01em',
                   marginBottom: '10px',
                   color: S.colors.text,
+                  wordWrap: 'break-word',
+                  overflowWrap: 'break-word',
+                  hyphens: 'auto',
+                  maxWidth: '100%',
                 }}>
                   {selectedNode.title}
                 </h3>
@@ -811,6 +816,11 @@ function SidePanel({ selectedNode, onShowNodeHistory, onView2D, onExtractFromInp
                     lineHeight: 1.65,
                     color: S.colors.textSecondary,
                     marginBottom: '14px',
+                    wordWrap: 'break-word',
+                    overflowWrap: 'break-word',
+                    hyphens: 'auto',
+                    maxWidth: '100%',
+                    whiteSpace: 'pre-wrap',
                   }}>
                     {selectedNode.content}
                   </p>
@@ -1088,6 +1098,9 @@ function App() {
   
   // Pitch Training state
   const [showPitchTraining, setShowPitchTraining] = useState(false);
+  
+  // Debate Arena state
+  const [showDebateArena, setShowDebateArena] = useState(false);
   
   // Initialize from backend API on mount
   useEffect(() => {
@@ -2423,6 +2436,18 @@ function App() {
         onClose={() => setShowPitchTraining(false)} 
       />
       
+      {/* Debate Arena */}
+      <DebateArena
+        isOpen={showDebateArena}
+        onClose={() => setShowDebateArena(false)}
+        graphContext={{
+          evidence: apiNodes
+            .filter(n => n.type === 'evidence')
+            .slice(0, 5)
+            .map(n => n.content || n.title),
+        }}
+      />
+      
       {/* PMF Path Playbook Panel */}
       {selectedPmfPath && (
         <PlaybookPanel
@@ -2445,45 +2470,91 @@ function App() {
         }}
       />
       
-      {/* Pitch Training Bubble Button - Bottom Left */}
-      {!showOnboarding && !showPitchTraining && (
-        <button
-          onClick={() => setShowPitchTraining(true)}
-          style={{
-            position: 'fixed',
-            bottom: '32px',
-            left: '32px',
-            width: '60px',
-            height: '60px',
-            borderRadius: '50%',
-            background: `linear-gradient(135deg, ${S.colors.accent} 0%, #005C43 100%)`,
-            border: 'none',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 4px 20px rgba(0,115,84,0.35)',
-            transition: 'all 200ms ease',
-            zIndex: 100,
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'scale(1.08)';
-            e.currentTarget.style.boxShadow = '0 6px 28px rgba(0,115,84,0.45)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'scale(1)';
-            e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,115,84,0.35)';
-          }}
-          title="Practice your elevator pitch"
-        >
-          {/* Microphone icon */}
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-            <line x1="12" y1="19" x2="12" y2="23" />
-            <line x1="8" y1="23" x2="16" y2="23" />
-          </svg>
-        </button>
+      {/* Floating Action Buttons - Bottom Left */}
+      {!showOnboarding && !showPitchTraining && !showDebateArena && (
+        <div style={{
+          position: 'fixed',
+          bottom: '32px',
+          left: '32px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+          zIndex: 100,
+        }}>
+          {/* Debate Arena Button */}
+          <button
+            onClick={() => setShowDebateArena(true)}
+            style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              background: `linear-gradient(135deg, ${S.colors.accent} 0%, #005C43 100%)`,
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 20px rgba(0,115,84,0.35)',
+              transition: 'all 200ms ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.08)';
+              e.currentTarget.style.boxShadow = '0 6px 28px rgba(0,115,84,0.45)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,115,84,0.35)';
+            }}
+            title="Debate Arena - Stress-test your ideas"
+          >
+            {/* Swords icon */}
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14.5 17.5L3 6V3h3l11.5 11.5" />
+              <path d="M13 19l6-6" />
+              <path d="M16 16l4 4" />
+              <path d="M19 21l2-2" />
+              <path d="M9.5 6.5L21 18v3h-3L6.5 9.5" />
+              <path d="M11 5l-6 6" />
+              <path d="M8 8L4 4" />
+              <path d="M5 3L3 5" />
+            </svg>
+          </button>
+          
+          {/* Pitch Training Button */}
+          <button
+            onClick={() => setShowPitchTraining(true)}
+            style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              background: `linear-gradient(135deg, ${S.colors.accent} 0%, #005C43 100%)`,
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 20px rgba(0,115,84,0.35)',
+              transition: 'all 200ms ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.08)';
+              e.currentTarget.style.boxShadow = '0 6px 28px rgba(0,115,84,0.45)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,115,84,0.35)';
+            }}
+            title="Practice your elevator pitch"
+          >
+            {/* Microphone icon */}
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              <line x1="12" y1="19" x2="12" y2="23" />
+              <line x1="8" y1="23" x2="16" y2="23" />
+            </svg>
+          </button>
+        </div>
       )}
     </div>
   );

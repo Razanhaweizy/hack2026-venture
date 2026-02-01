@@ -1,6 +1,6 @@
 /**
  * OnboardingForm Component
- * Sequoia-styled onboarding questionnaire for startup validation
+ * Premium Sequoia-styled onboarding questionnaire for startup validation
  * Includes PMF path detection as the first step
  */
 
@@ -32,6 +32,40 @@ const S = {
     warning: '#E5A826',
   },
 };
+
+// =============================================================================
+// PATH ICONS (SVG)
+// =============================================================================
+
+function PathIcon({ type, size = 24, color = S.colors.accent }: { type: 'urgent' | 'steady' | 'visionary'; size?: number; color?: string }) {
+  if (type === 'urgent') {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5">
+        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+      </svg>
+    );
+  }
+  if (type === 'steady') {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="M3 9h18" />
+        <path d="M9 21V9" />
+      </svg>
+    );
+  }
+  // visionary
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5">
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 2v4" />
+      <path d="M12 18v4" />
+      <path d="M2 12h4" />
+      <path d="M18 12h4" />
+    </svg>
+  );
+}
 
 // =============================================================================
 // TYPES
@@ -66,7 +100,7 @@ type Question = TextQuestion | PathChoiceQuestion;
 
 interface PathOption {
   id: PmfPath;
-  icon: string;
+  iconType: 'urgent' | 'steady' | 'visionary';
   title: string;
   description: string;
   examples: string;
@@ -75,24 +109,24 @@ interface PathOption {
 const PATH_OPTIONS: PathOption[] = [
   {
     id: 'hair_on_fire',
-    icon: '🔥',
+    iconType: 'urgent',
     title: "They're actively searching for solutions",
     description: 'Looking for tools, comparing options, ready to buy',
-    examples: 'They\'re Googling for solutions, asking peers for recommendations',
+    examples: 'Googling for solutions, asking peers for recommendations',
   },
   {
     id: 'hard_fact',
-    icon: '📊',
+    iconType: 'steady',
     title: 'They\'ve accepted it as "just how things are"',
     description: 'Using workarounds, not actively looking for better',
-    examples: 'Manual spreadsheets, "that\'s just what we do", accepted friction',
+    examples: 'Manual spreadsheets, accepted friction, "that\'s just what we do"',
   },
   {
     id: 'future_vision',
-    icon: '🔮',
+    iconType: 'visionary',
     title: "They don't know they have this problem",
     description: "Would be skeptical, don't believe it can be solved",
-    examples: '"That\'s impossible", "We don\'t need that", paradigm shift required',
+    examples: '"That\'s impossible", paradigm shift required',
   },
 ];
 
@@ -107,21 +141,21 @@ const PATH_FOLLOWUP_QUESTIONS: Record<PmfPath, TextQuestion[]> = {
       type: 'text',
       question: 'What are customers currently Googling to find solutions?',
       placeholder: 'List the search terms, keywords, and phrases they use...',
-      category: '🔥 Hair on Fire',
+      category: 'Hair on Fire',
     },
     {
       id: 'hof_evaluation',
       type: 'text',
       question: 'Who are you competing against for these customers?',
       placeholder: 'Name specific competitors they\'re comparing you to...',
-      category: '🔥 Hair on Fire',
+      category: 'Hair on Fire',
     },
     {
       id: 'hof_switch',
       type: 'text',
       question: 'How are they evaluating options right now?',
       placeholder: 'What criteria matter most? Price, features, speed, integrations?',
-      category: '🔥 Hair on Fire',
+      category: 'Hair on Fire',
     },
   ],
   hard_fact: [
@@ -130,21 +164,21 @@ const PATH_FOLLOWUP_QUESTIONS: Record<PmfPath, TextQuestion[]> = {
       type: 'text',
       question: 'What workaround do they currently use?',
       placeholder: 'Spreadsheets? Manual processes? Hiring people? Ignoring it?',
-      category: '📊 Hard Fact',
+      category: 'Hard Fact',
     },
     {
       id: 'hf_trigger',
       type: 'text',
       question: 'What would trigger them to look for a better way?',
       placeholder: 'What event or pain point would make them reconsider?',
-      category: '📊 Hard Fact',
+      category: 'Hard Fact',
     },
     {
       id: 'hf_tried',
       type: 'text',
       question: 'Have they tried to solve this before? What happened?',
       placeholder: 'Past attempts, why they failed, lessons learned...',
-      category: '📊 Hard Fact',
+      category: 'Hard Fact',
     },
   ],
   future_vision: [
@@ -153,21 +187,21 @@ const PATH_FOLLOWUP_QUESTIONS: Record<PmfPath, TextQuestion[]> = {
       type: 'text',
       question: 'What\'s your "stepping stone" product that makes money while you build the vision?',
       placeholder: 'The pit stop that generates revenue NOW while the market catches up...',
-      category: '🔮 Future Vision',
+      category: 'Future Vision',
     },
     {
       id: 'fv_believers',
       type: 'text',
       question: 'Who are the early believers, and why do they believe?',
       placeholder: 'The 10 people who "get it" - what do they see that others don\'t?',
-      category: '🔮 Future Vision',
+      category: 'Future Vision',
     },
     {
       id: 'fv_possible',
       type: 'text',
       question: 'What needs to happen for people to believe this is possible?',
       placeholder: 'Technology shifts, cultural changes, proof points needed...',
-      category: '🔮 Future Vision',
+      category: 'Future Vision',
     },
   ],
 };
@@ -176,16 +210,13 @@ const PATH_FOLLOWUP_QUESTIONS: Record<PmfPath, TextQuestion[]> = {
 // QUESTIONS
 // =============================================================================
 
-// Base questions (without path-specific ones)
 const BASE_QUESTIONS: Question[] = [
-  // First question: Path detection
   {
     id: 'pmf_path',
     type: 'path_choice',
     question: 'How do your customers relate to this problem today?',
     category: 'Strategy',
   },
-  // Standard questions
   {
     id: 'problem_who',
     type: 'text',
@@ -258,18 +289,16 @@ const BASE_QUESTIONS: Question[] = [
   },
 ];
 
-// Function to get questions based on selected path
 function getQuestionsForPath(path: PmfPath | null): Question[] {
   if (!path) {
     return BASE_QUESTIONS;
   }
   
-  // Insert path-specific follow-ups after the path choice question
   const pathFollowups = PATH_FOLLOWUP_QUESTIONS[path];
   const result: Question[] = [
-    BASE_QUESTIONS[0], // Path choice
-    ...pathFollowups,  // Path-specific follow-ups
-    ...BASE_QUESTIONS.slice(1), // Rest of standard questions
+    BASE_QUESTIONS[0],
+    ...pathFollowups,
+    ...BASE_QUESTIONS.slice(1),
   ];
   
   return result;
@@ -289,7 +318,6 @@ export function OnboardingForm({ onComplete, onProcessAnswer, onPathSelected }: 
   const [submittedSteps, setSubmittedSteps] = useState<Set<number>>(new Set());
   const [showPathHelp, setShowPathHelp] = useState(false);
 
-  // Get questions dynamically based on selected path
   const questions = useMemo(() => getQuestionsForPath(selectedPath), [selectedPath]);
   
   const currentQuestion = questions[currentStep];
@@ -298,7 +326,6 @@ export function OnboardingForm({ onComplete, onProcessAnswer, onPathSelected }: 
   const isProcessing = processingCount > 0;
   const isPathQuestion = currentQuestion?.type === 'path_choice';
 
-  // Handle path selection
   const handlePathSelect = useCallback((path: PmfPath) => {
     setSelectedPath(path);
     onPathSelected?.(path);
@@ -306,7 +333,6 @@ export function OnboardingForm({ onComplete, onProcessAnswer, onPathSelected }: 
 
   const handleNext = () => {
     if (isPathQuestion) {
-      // Path question - just save and move on
       if (selectedPath) {
         const newAnswers = { ...answers, pmf_path: selectedPath };
         setAnswers(newAnswers);
@@ -316,14 +342,12 @@ export function OnboardingForm({ onComplete, onProcessAnswer, onPathSelected }: 
       return;
     }
 
-    // Text question - save and process
     const newAnswers = {
       ...answers,
       [currentQuestion.id]: currentAnswer,
     };
     setAnswers(newAnswers);
 
-    // Process answer with AI in background (non-blocking)
     if (currentAnswer.trim() && !submittedSteps.has(currentStep)) {
       const stepToProcess = currentStep;
       const questionText = currentQuestion.question;
@@ -375,7 +399,6 @@ export function OnboardingForm({ onComplete, onProcessAnswer, onPathSelected }: 
     }
   };
 
-  // Determine if Continue should be enabled
   const canContinue = isPathQuestion ? selectedPath !== null : true;
 
   return (
@@ -441,7 +464,6 @@ export function OnboardingForm({ onComplete, onProcessAnswer, onPathSelected }: 
             }}
           >
             {currentStep + 1} of {questions.length}
-            {/* Background processing indicator */}
             {isProcessing && (
               <span style={{ 
                 fontSize: '10px', 
@@ -598,7 +620,23 @@ export function OnboardingForm({ onComplete, onProcessAnswer, onPathSelected }: 
                   >
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
                       {/* Icon */}
-                      <span style={{ fontSize: '28px', lineHeight: 1 }}>{option.icon}</span>
+                      <div style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '12px',
+                        background: selectedPath === option.id ? `${S.colors.accent}20` : S.colors.bgAlt,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        transition: 'all 150ms ease',
+                      }}>
+                        <PathIcon 
+                          type={option.iconType} 
+                          size={24} 
+                          color={selectedPath === option.id ? S.colors.accent : S.colors.textSecondary} 
+                        />
+                      </div>
                       
                       {/* Content */}
                       <div style={{ flex: 1 }}>
@@ -700,9 +738,9 @@ export function OnboardingForm({ onComplete, onProcessAnswer, onPathSelected }: 
                       lineHeight: 1.7,
                     }}
                   >
-                    <li><strong>Are they Googling for solutions?</strong> → Hair on Fire 🔥</li>
-                    <li><strong>Do they use workarounds like spreadsheets?</strong> → Hard Fact 📊</li>
-                    <li><strong>Would they laugh if you pitched them?</strong> → Future Vision 🔮</li>
+                    <li><strong>Are they Googling for solutions?</strong> — Hair on Fire</li>
+                    <li><strong>Do they use workarounds like spreadsheets?</strong> — Hard Fact</li>
+                    <li><strong>Would they laugh if you pitched them?</strong> — Future Vision</li>
                   </ul>
                 </div>
               )}
@@ -885,7 +923,7 @@ export function OnboardingForm({ onComplete, onProcessAnswer, onPathSelected }: 
                 background: S.colors.accent,
                 animation: 'pulse 1s ease-in-out infinite',
               }} />
-              AI building your graph in background • Keep answering
+              AI building your graph in background
             </>
           ) : (
             'Your answers are synced to your startup validation graph'

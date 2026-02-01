@@ -1,6 +1,6 @@
 /**
  * PathDetectionWizard Component
- * Helps users identify their PMF path through guided questions
+ * Premium Sequoia-styled wizard for identifying PMF path
  */
 
 import { useState, useCallback } from 'react';
@@ -30,6 +30,40 @@ const S = {
     borderSubtle: '#E8E5DC',
   },
 };
+
+// =============================================================================
+// PATH ICONS
+// =============================================================================
+
+function PathIcon({ type, size = 24, color = S.colors.accent }: { type: string; size?: number; color?: string }) {
+  if (type === 'urgent') {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5">
+        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+      </svg>
+    );
+  }
+  if (type === 'steady') {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="M3 9h18" />
+        <path d="M9 21V9" />
+      </svg>
+    );
+  }
+  // visionary
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5">
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 2v4" />
+      <path d="M12 18v4" />
+      <path d="M2 12h4" />
+      <path d="M18 12h4" />
+    </svg>
+  );
+}
 
 // =============================================================================
 // TYPES
@@ -167,17 +201,14 @@ export function PathDetectionWizard({
     const option = currentQuestion.options.find(o => o.id === optionId);
     if (!option) return;
     
-    // Update answers
     setAnswers(prev => ({ ...prev, [currentQuestion.id]: optionId }));
     
-    // Update scores
     setScores(prev => ({
       hair_on_fire: prev.hair_on_fire + option.scores.hair_on_fire,
       hard_fact: prev.hard_fact + option.scores.hard_fact,
       future_vision: prev.future_vision + option.scores.future_vision,
     }));
     
-    // Move to next question or show result
     if (currentStep < DETECTION_QUESTIONS.length - 1) {
       setCurrentStep(prev => prev + 1);
     } else {
@@ -191,7 +222,6 @@ export function PathDetectionWizard({
       return;
     }
     if (currentStep > 0) {
-      // Remove the score from the previous answer
       const prevAnswer = answers[currentQuestion.id];
       if (prevAnswer) {
         const option = currentQuestion.options.find(o => o.id === prevAnswer);
@@ -220,7 +250,6 @@ export function PathDetectionWizard({
       detectedPath = 'future_vision';
     }
     
-    // Calculate confidence (0-100)
     const confidence = totalScore > 0 ? Math.round((maxScore / totalScore) * 100) : 50;
     
     return { path: detectedPath, confidence };
@@ -242,7 +271,8 @@ export function PathDetectionWizard({
         left: 0,
         right: 0,
         bottom: 0,
-        background: 'rgba(27, 25, 22, 0.6)',
+        background: 'rgba(27, 25, 22, 0.5)',
+        backdropFilter: 'blur(4px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -255,19 +285,20 @@ export function PathDetectionWizard({
           width: '100%',
           maxWidth: '560px',
           background: S.colors.bg,
-          borderRadius: '12px',
-          boxShadow: '0 20px 60px rgba(27, 25, 22, 0.2)',
+          borderRadius: '16px',
+          boxShadow: '0 24px 80px rgba(27, 25, 22, 0.2)',
           overflow: 'hidden',
         }}
       >
         {/* Header */}
         <div
           style={{
-            padding: '20px 24px',
+            padding: '24px 28px',
             borderBottom: `1px solid ${S.colors.borderSubtle}`,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
+            background: S.colors.bgCard,
           }}
         >
           <div>
@@ -280,7 +311,7 @@ export function PathDetectionWizard({
                 margin: 0,
               }}
             >
-              {showResult ? 'Your Path' : 'Find Your Path'}
+              {showResult ? 'Your Strategic Path' : 'Discover Your Path'}
             </h2>
             {!showResult && (
               <p style={{ fontSize: '12px', color: S.colors.textTertiary, margin: '4px 0 0' }}>
@@ -292,9 +323,9 @@ export function PathDetectionWizard({
           <button
             onClick={onClose}
             style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '6px',
+              width: '36px',
+              height: '36px',
+              borderRadius: '8px',
               border: 'none',
               background: 'transparent',
               cursor: 'pointer',
@@ -302,6 +333,15 @@ export function PathDetectionWizard({
               alignItems: 'center',
               justifyContent: 'center',
               color: S.colors.textTertiary,
+              transition: 'all 150ms ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = S.colors.bgAlt;
+              e.currentTarget.style.color = S.colors.text;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = S.colors.textTertiary;
             }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -326,7 +366,7 @@ export function PathDetectionWizard({
         )}
         
         {/* Content */}
-        <div style={{ padding: '24px' }}>
+        <div style={{ padding: '28px' }}>
           {!showResult ? (
             <>
               <h3
@@ -335,7 +375,7 @@ export function PathDetectionWizard({
                   fontSize: '18px',
                   fontWeight: 400,
                   color: S.colors.text,
-                  margin: '0 0 20px',
+                  margin: '0 0 24px',
                   lineHeight: 1.4,
                 }}
               >
@@ -349,25 +389,27 @@ export function PathDetectionWizard({
                     onClick={() => handleOptionSelect(option.id)}
                     style={{
                       width: '100%',
-                      padding: '14px 16px',
+                      padding: '16px 18px',
                       textAlign: 'left',
                       background: answers[currentQuestion.id] === option.id ? S.colors.accentLight : S.colors.bgCard,
                       border: `1px solid ${answers[currentQuestion.id] === option.id ? S.colors.accent : S.colors.border}`,
-                      borderRadius: '8px',
+                      borderRadius: '10px',
                       cursor: 'pointer',
                       fontSize: '14px',
                       color: S.colors.text,
-                      lineHeight: 1.4,
+                      lineHeight: 1.5,
                       transition: 'all 150ms ease',
                     }}
                     onMouseEnter={(e) => {
                       if (answers[currentQuestion.id] !== option.id) {
                         e.currentTarget.style.borderColor = S.colors.accent + '60';
+                        e.currentTarget.style.background = S.colors.bgAlt;
                       }
                     }}
                     onMouseLeave={(e) => {
                       if (answers[currentQuestion.id] !== option.id) {
                         e.currentTarget.style.borderColor = S.colors.border;
+                        e.currentTarget.style.background = S.colors.bgCard;
                       }
                     }}
                   >
@@ -383,11 +425,25 @@ export function PathDetectionWizard({
                 const result = getResult();
                 const config = PMF_PATH_CONFIGS[result.path];
                 
+                // Map config.icon to icon type
+                const iconType = config.icon === 'urgent' ? 'urgent' : config.icon === 'steady' ? 'steady' : 'visionary';
+                
                 return (
                   <div style={{ textAlign: 'center' }}>
-                    <span style={{ fontSize: '48px', display: 'block', marginBottom: '16px' }}>
-                      {config.icon}
-                    </span>
+                    {/* Icon */}
+                    <div style={{
+                      width: '72px',
+                      height: '72px',
+                      borderRadius: '20px',
+                      background: S.colors.accentLight,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      margin: '0 auto 20px',
+                    }}>
+                      <PathIcon type={iconType} size={36} color={S.colors.accent} />
+                    </div>
+                    
                     <h3
                       style={{
                         fontFamily: S.fonts.serif,
@@ -403,37 +459,38 @@ export function PathDetectionWizard({
                       style={{
                         fontSize: '14px',
                         color: S.colors.textSecondary,
-                        margin: '0 0 16px',
+                        margin: '0 0 20px',
                         lineHeight: 1.5,
                       }}
                     >
                       {config.shortDescription}
                     </p>
                     
+                    {/* Confidence badge */}
                     <div
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '6px',
-                        padding: '6px 12px',
+                        padding: '8px 14px',
                         background: S.colors.accentLight,
                         borderRadius: '20px',
                         fontSize: '12px',
                         color: S.colors.accent,
                         fontWeight: 500,
-                        marginBottom: '24px',
+                        marginBottom: '28px',
                       }}
                     >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                         <polyline points="22 4 12 14.01 9 11.01" />
                       </svg>
                       {(() => {
                         const n = result.confidence / 100;
-                        if (n >= 0.75) return 'High confidence';
-                        if (n >= 0.55) return 'Good confidence';
-                        if (n >= 0.35) return 'Moderate confidence';
-                        return 'Low confidence';
+                        if (n >= 0.75) return 'High confidence match';
+                        if (n >= 0.55) return 'Good confidence match';
+                        if (n >= 0.35) return 'Moderate confidence match';
+                        return 'Suggested match';
                       })()}
                     </div>
                     
@@ -449,19 +506,37 @@ export function PathDetectionWizard({
                       {(['hair_on_fire', 'hard_fact', 'future_vision'] as PmfPath[]).map((p) => {
                         const pathConfig = PMF_PATH_CONFIGS[p];
                         const isSelected = result.path === p;
+                        const pIconType = pathConfig.icon === 'urgent' ? 'urgent' : pathConfig.icon === 'steady' ? 'steady' : 'visionary';
+                        
                         return (
                           <div
                             key={p}
                             style={{
-                              padding: '10px 14px',
+                              padding: '12px 16px',
                               background: isSelected ? S.colors.accentLight : S.colors.bgCard,
                               border: `1px solid ${isSelected ? S.colors.accent : S.colors.borderSubtle}`,
-                              borderRadius: '6px',
+                              borderRadius: '10px',
                               textAlign: 'center',
                             }}
                           >
-                            <span style={{ fontSize: '16px' }}>{pathConfig.icon}</span>
-                            <p style={{ fontSize: '10px', color: S.colors.textTertiary, margin: '4px 0 0' }}>
+                            <div style={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center',
+                              marginBottom: '6px',
+                            }}>
+                              <PathIcon 
+                                type={pIconType} 
+                                size={20} 
+                                color={isSelected ? S.colors.accent : S.colors.textTertiary} 
+                              />
+                            </div>
+                            <p style={{ 
+                              fontSize: '10px', 
+                              color: isSelected ? S.colors.accent : S.colors.textTertiary, 
+                              margin: 0,
+                              fontWeight: isSelected ? 600 : 400,
+                            }}>
                               {scores[p]} pts
                             </p>
                           </div>
@@ -482,10 +557,11 @@ export function PathDetectionWizard({
         {/* Footer */}
         <div
           style={{
-            padding: '16px 24px',
+            padding: '18px 28px',
             borderTop: `1px solid ${S.colors.borderSubtle}`,
             display: 'flex',
             justifyContent: 'space-between',
+            background: S.colors.bgCard,
           }}
         >
           {(currentStep > 0 || showResult) ? (
@@ -500,8 +576,18 @@ export function PathDetectionWizard({
                 border: 'none',
                 borderRadius: '6px',
                 cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'color 150ms ease',
               }}
+              onMouseEnter={(e) => e.currentTarget.style.color = S.colors.text}
+              onMouseLeave={(e) => e.currentTarget.style.color = S.colors.textSecondary}
             >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="19" y1="12" x2="5" y2="12" />
+                <polyline points="12 19 5 12 12 5" />
+              </svg>
               Back
             </button>
           ) : (
@@ -512,17 +598,27 @@ export function PathDetectionWizard({
             <button
               onClick={handleConfirm}
               style={{
-                padding: '10px 24px',
+                padding: '12px 24px',
                 fontSize: '13px',
                 fontWeight: 600,
                 color: '#FFFFFF',
                 background: S.colors.accent,
                 border: 'none',
-                borderRadius: '6px',
+                borderRadius: '8px',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
+                transition: 'all 150ms ease',
+                boxShadow: '0 2px 8px rgba(0,115,84,0.2)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = S.colors.accentHover;
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = S.colors.accent;
+                e.currentTarget.style.transform = 'translateY(0)';
               }}
             >
               Confirm & Continue

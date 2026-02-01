@@ -191,6 +191,9 @@ export function Node2DView({ node, isOpen, onClose }: Node2DViewProps) {
               color: S.colors.text,
               marginBottom: '4px',
               maxWidth: '500px',
+              wordWrap: 'break-word',
+              overflowWrap: 'break-word',
+              hyphens: 'auto',
             }}>
               {node.title}
             </h2>

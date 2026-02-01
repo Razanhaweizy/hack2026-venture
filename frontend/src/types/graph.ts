@@ -97,7 +97,7 @@ export const PMF_PATH_CONFIGS: Record<PmfPath, PmfPathConfig> = {
   hair_on_fire: {
     id: 'hair_on_fire',
     name: 'Hair on Fire',
-    icon: '🔥',
+    icon: 'urgent',
     shortDescription: 'Customer is actively searching for solutions RIGHT NOW',
     enemy: 'Competitors',
     job: 'Outexecute',
@@ -107,7 +107,7 @@ export const PMF_PATH_CONFIGS: Record<PmfPath, PmfPathConfig> = {
   hard_fact: {
     id: 'hard_fact',
     name: 'Hard Fact',
-    icon: '📊',
+    icon: 'steady',
     shortDescription: 'Customer has accepted the problem as "just how things are"',
     enemy: 'Inertia',
     job: 'Educate',
@@ -117,7 +117,7 @@ export const PMF_PATH_CONFIGS: Record<PmfPath, PmfPathConfig> = {
   future_vision: {
     id: 'future_vision',
     name: 'Future Vision',
-    icon: '🔮',
+    icon: 'visionary',
     shortDescription: "Customer doesn't know they have the problem",
     enemy: 'Disbelief',
     job: 'Survive',
