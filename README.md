@@ -1,16 +1,94 @@
-# React + Vite
+# Ideograph
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Startup Idea Evaluation Tool with a 3D dependency graph visualization.
 
-Currently, two official plugins are available:
+## Project Structure
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+```
+/
+├── backend/           # Python FastAPI backend
+│   ├── app/
+│   │   ├── main.py   # FastAPI application
+│   │   ├── models/   # Pydantic data models
+│   │   ├── routes/   # API endpoints
+│   │   └── services/ # Business logic
+│   ├── data/         # CSV data files
+│   └── requirements.txt
+│
+└── frontend/          # React + Three.js frontend
+    ├── src/
+    │   ├── api/      # API client
+    │   ├── components/
+    │   ├── store/    # Zustand stores
+    │   └── ...
+    └── package.json
+```
 
-## React Compiler
+## Setup
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Backend (Python)
 
-## Expanding the ESLint configuration
+1. Create and activate virtual environment:
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+3. Run the backend:
+```bash
+uvicorn app.main:app --reload --port 8000
+```
+
+The API will be available at http://localhost:8000
+
+### Frontend (React)
+
+1. Install dependencies:
+```bash
+cd frontend
+npm install
+```
+
+2. Run the frontend:
+```bash
+npm run dev
+```
+
+The app will be available at http://localhost:5173
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/graph/state` | Get complete graph state |
+| GET | `/api/graph/progress` | Get skeleton completion progress |
+| GET | `/api/graph/nodes` | Get all nodes |
+| POST | `/api/graph/nodes` | Create a new node |
+| PUT | `/api/graph/nodes/{id}` | Update a node |
+| DELETE | `/api/graph/nodes/{id}` | Delete a node |
+| GET | `/api/graph/edges` | Get all edges |
+| POST | `/api/graph/edges` | Create a new edge |
+| DELETE | `/api/graph/edges/{id}` | Delete an edge |
+| GET | `/api/graph/export/nodes.csv` | Export nodes as CSV |
+| GET | `/api/graph/export/edges.csv` | Export edges as CSV |
+
+## Quick Start (Both)
+
+Run both backend and frontend:
+
+```bash
+# Terminal 1 - Backend
+cd backend
+source venv/bin/activate
+uvicorn app.main:app --reload --port 8000
+
+# Terminal 2 - Frontend
+cd frontend
+npm run dev
+```
